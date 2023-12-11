@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Photo Search</title>
+<style>
+    body {
+        font-family: 'Arial', sans-serif;
+        margin: 20px;   
+        background-color: #f4f4f4;
+    }
+
+    h1 {
+        color: #333;
+    }
+
+    form {
+        margin-bottom: 100px;
+    }
+
+    input[type="file"],
+    input[type="text"],
+    input[type="submit"] {
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    input[type="submit"] {
+        background-color: #c91b1b;
+        color: white;
+        cursor: pointer;
+    }
+
+    input[type="file"]:hover,
+    input[type="text"]:hover,
+    input[type="submit"]:hover {
+        border-color: #333;
+    }
+
+    #imageContainer {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .imageContainer {
+        margin-bottom: 20px;
+        margin-right: 20px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background-color: #fff;
+        transition: box-shadow 0.3s ease;
+        width: 200px;
+    }
+
+    .imageContainer:hover {
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    img {
+        max-width: 100%;
+        height: auto;
+        margin-bottom: 10px;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 4px;
+    }
+
+    span {
+        color: #333;
+        text-align: center;
+        display: block;
+        margin-top: 10px;
+    }
+
+    p {
+        margin: 0;
+    }
+
+    /* Add some spacing and styling to the success and error messages */
+    p {
+        margin-top: 10px;
+    }
+
+    /* Style success message */
+    p.success {
+        color: #4caf50;
+    }
+
+    /* Style error message */
+    p.error {
+        color: #f44336;
+    }
+</style>
+<script>
+// Function to handle the file upload
+function uploadFile() {
+    var fileInput = document.getElementById('fileInput');
+    var file = fileInput.files[0];
+
+    if (!file) {
+        console.error('No file selected.');
+        return false;
+    }
+
+    var bucketName = 'photos-bucket-ass3';
+    var filename = file.name;
+    var apiUrl = `https://2kkdk8l633.execute-api.us-east-1.amazonaws.com/test2/upload/${bucketName}/${filename}`;
+
+    var labelsInput = document.getElementById('labelsInput');
+    var customLabels = labelsInput.value;
+
+    // Create a pre-signed URL for the PUT operation
+    fetch(apiUrl, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': file.type,
+            'x-amz-meta-customLabels': customLabels,
+            'x-api-key': 'WnyETLtbQU7xg8rSsy20f5uWAP9uWTN63McqhSle'
+        },
+        body: file,
+    })
+    .then(response => {
+        console.log('Response:', response);
+        if (response.ok) {
+            console.log('File uploaded successfully.');
+            // Clear inputs and display success message
+            labelsInput.value = '';
+            fileInput.value = ''; // Reset file input
+            displaySuccessMessage('Image uploaded successfully.');
+        } else {
+            console.error('File upload failed:', response.statusText);
+            displayErrorMessage('File upload failed.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        displayErrorMessage('Error uploading file.');
+    });
+
+    return false; // Prevent page refresh
+}
+
+// Function to handle the search
+function search() {
+    var searchTerm = document.getElementById('searchTerm').value;
+
+    fetch(`https://2kkdk8l633.execute-api.us-east-1.amazonaws.com/test2/search?q=${encodeURIComponent(searchTerm)}`, {
+        method: 'GET',
+        headers: { 
+            'x-api-key': 'WnyETLtbQU7xg8rSsy20f5uWAP9uWTN63McqhSle'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Search results:', data);
+        displayImages(data);
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+
+    return false; // Prevent page refresh
+}
+
+// Function to check if an image URL is valid
+function isValidImageUrl(url) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+    });
+}
+
+// Modified function to display images
+async function displayImages(imageUrls) {
+    var imageContainer = document.getElementById('imageContainer');
+    imageContainer.innerHTML = ''; // Clear previous results
+
+    if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+        for (let url of imageUrls) {
+            const isValid = await isValidImageUrl(url);
+            if (isValid) {
+                var imgContainer = document.createElement('div');
+                imgContainer.className = 'imageContainer';
+
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = 'Image';
+                img.style.maxHeight = '100px';
+                img.style.marginRight = '10px';
+
+                var imgName = document.createElement('span');
+                imgName.textContent = getFileNameFromUrl(url);
+
+                img.addEventListener('click', function () {
+                    window.open(url, '_blank');
+                });
+
+                imgContainer.appendChild(img);
+                imgContainer.appendChild(imgName);
+                imageContainer.appendChild(imgContainer);
+            }
+        }
+    } else {
+        imageContainer.innerHTML = '<p>No results found.</p>';
+    }
+}
+
+
+// Function to display a success message
+function displaySuccessMessage(message) {
+    var successMessage = document.createElement('p');
+    successMessage.style.color = '#4caf50'; // Green color
+    successMessage.textContent = message;
+
+    var uploadForm = document.querySelector('form');
+    uploadForm.appendChild(successMessage);
+
+    // Remove the success message after a few seconds
+    setTimeout(function () {
+        successMessage.remove();
+    }, 5000); // 5000 milliseconds (5 seconds)
+}
+
+// Function to display an error message
+function displayErrorMessage(message) {
+    var errorMessage = document.createElement('p');
+    errorMessage.style.color = '#f44336'; // Red color
+    errorMessage.textContent = message;
+
+    var uploadForm = document.querySelector('form');
+    uploadForm.appendChild(errorMessage);
+
+    // Remove the error message after a few seconds
+    setTimeout(function () {
+        errorMessage.remove();
+    }, 3000); // 3000 milliseconds (3 seconds)
+}
+
+// Function to get file name from URL
+function getFileNameFromUrl(url) {
+    var parts = url.split('/');
+    return parts[parts.length - 1];
+}
+</script>
+</head>
+<body>
+
+<h2>Upload Image</h2>
+<form onsubmit="return uploadFile()">
+    <input type="file" id="fileInput" name="file">
+    <label for="labelsInput">Custom Labels </label>
+    <input type="text" id="labelsInput" name="labelsInput">
+    <input type="submit" value="Upload">
+</form>
+
+<h2>Search Image</h2>
+<form onsubmit="return search()">
+    <input type="text" id="searchTerm" placeholder="Search...">
+    <input type="submit" value="Search">
+</form>
+
+<div id="imageContainer"></div>
+
+</body>
+</html>
